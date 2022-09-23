@@ -8,44 +8,119 @@
 char path[1000] = "/bin/:/usr/bin/:";
 void parallel_cmd(char *tok)
 {
-    printf("%s", tok);
+    // printf("tok print %s", tok);
     char *tok2;
+    char *temptok;
+    int count = 0;
+    int i;
+    char *arr[10];
     tok2 = strtok(tok, "&");
-    while (tok2 != NULL)
+    temptok = tok2;
+    while (temptok != NULL)
     {
-
-        if (strstr(tok2, "cd") != NULL)
+        // if(fork() == 0)
+        // {
+        //     if (strstr(temptok, "cd") != NULL)
+        // {
+        //     //printf("2nd %s\n ", tok2);
+        //     int a = cd_builtin(temptok);
+        //     if (a > 2)
+        //     {
+        //         char error_message[30] = "An error has occurred\n";
+        //         write(STDERR_FILENO, error_message, strlen(error_message));
+        //     }
+        // }
+        // else if (strstr(temptok, "path") != NULL)
+        // {
+        //     int b = path_builtin(temptok);
+        //     if (b == 0)
+        //     {
+        //         strcpy(path, "");
+        //     }
+        // }
+        // else if (strstr(temptok, "exit") != NULL)
+        // {
+        //     int c = exit_builtin(temptok);
+        // }
+        // else
+        // {
+        //     int d = exec_cmd(temptok);
+        //     if (d == 0)
+        //     {
+        //         char error_message[30] = "An error has occurred\n";
+        //         write(STDERR_FILENO, error_message, strlen(error_message));
+        //     }
+        // }
+        // }
+        // else
+        // {
+        //     wait(NULL);
+        // }
+        arr[count] = temptok;
+        // printf("array %s", arr[count]);
+        count++;
+        temptok = strtok(NULL, "&");
+    }
+    // printf("cnt %d", count);
+    for (i = 0; i < sizeof(arr); i++)
+    {
+        printf("------%d---%s", i, arr[i]);
+        int fd = fork();
+        if (fd == 0)
         {
-            int a = cd_builtin(tok2);
-            if (a > 2)
+            if (strstr(arr[i], "cd") != NULL)
             {
-                char error_message[30] = "An error has occurred\n";
-                write(STDERR_FILENO, error_message, strlen(error_message));
+                // printf("2nd %s\n ", tok2);
+                printf("arr 1 element %s", arr[i]);
+                int a = cd_builtin(arr[i]);
+                // continue;
+                // if (a > 2 || a <= 1)
+                // {
+                //     char error_message[30] = "An error has occurred for p\n";
+                //     write(STDERR_FILENO, error_message, strlen(error_message));
+                //     break;
+                // }
             }
-        }
-        else if (strstr(tok2, "path") != NULL)
-        {
-            int b = path_builtin(tok2);
-            if (b == 0)
+            else if (strstr(arr[i], "path") != NULL)
             {
-                strcpy(path, "");
+                int b = path_builtin(arr[i]);
+                // break;
+                if (b == 0)
+                {
+                    strcpy(path, "");
+                    break;
+                }
             }
-        }
-        else if (strstr(tok2, "exit") != NULL)
-        {
-            int c = exit_builtin(tok2);
+            else if (strstr(arr[i], "exit") != NULL)
+            {
+                int c = exit_builtin(arr[i]);
+                break;
+            }
+            else
+            {
+                // printf("---------%s", arr[i]);
+                int d = exec_cmd(arr[i]);
+                // if (d == 0)
+                // {
+                //     char error_message[30] = "An error has occurred for p1\n";
+                //     write(STDERR_FILENO, error_message, strlen(error_message));
+                // }
+            }
         }
         else
         {
-            int d = exec_cmd(tok2);
-            if (d == 0)
+            int wc;
+            if (i == sizeof(arr) - 1)
             {
-                char error_message[30] = "An error has occurred\n";
-                write(STDERR_FILENO, error_message, strlen(error_message));
+                wc = wait(NULL);
+                break;
             }
+            else
+                wc = waitpid(fd);
         }
-        tok2 = strtok(NULL, "&");
     }
+
+    // printf("array %s", arr);
 }
 
 char *remove_whitespace(char *tok)
@@ -128,7 +203,7 @@ int exit_builtin(char *tok) //------exit built-in
         exit(0);
     else
     {
-        char error_message[30] = "An error has occurred \n";
+        char error_message[30] = "An error has occurredc\n";
         write(STDERR_FILENO, error_message, strlen(error_message));
         exit(0);
     }
@@ -194,7 +269,32 @@ int exec_cmd(char *tok) //---exec command
     char exec_command_path[10];
     char *exec_command[10] = {NULL};
     char *svptr1;
+    // char *echo_cmd = malloc(sizeof(*char));
     int i = 0;
+    // if (strstr(tok, "echo") != NULL)
+    // {
+    //     exec_command[0] = "echo";
+    //     i++;
+    //     tok = remove_whitespace(tok);
+
+    //     char *str1 = strtok(tok, " ");
+    //     while (str1 != NULL)
+    //     {
+    //         if (strstr(str1, "echo") == NULL)
+    //         {
+    //             strcat(exec_cmd, str1);
+    //         }
+    //         str1 = strtok(NULL, " ");
+    //     }
+    //     exec_cmd = remove_whitespace(exec_cmd);
+    //     exec_command[i] = exec_cmd;
+    //     i++;
+    //     exec_command[i] = NULL;
+
+    //     //printf("---->%s--->%s---->%s", exec_command[0], exec_command[1], exec_command[2]);
+    // }
+    // else
+    // {
     char *str1 = strtok_r(tok, " ", &svptr1);
     if (str1)
     {
@@ -205,7 +305,7 @@ int exec_cmd(char *tok) //---exec command
     {
         exec_command[i] = str1;
     }
-
+    // }
     tok2 = strtok(temptok, " ");
     while (tok2 != NULL)
     {
@@ -248,17 +348,21 @@ int exec_cmd(char *tok) //---exec command
 int main(int argc, char *argv[])
 {
     int c_b, p_b, e_b, r_m;
+    char *buf = NULL;
+    size_t size = 128;
+    size_t len;
+
+    buf = (char *)malloc(size * sizeof(char));
 
     if (argc == 2)
     {
         FILE *fp;
         char ch[50];
+
         fp = fopen(argv[1], "r");
+        len = getline(&buf, &size, fp);
         char commands[100];
-        while (fgets(ch, 50, fp) != NULL)
-        {
-            strcat(commands, ch);
-        }
+        strcat(commands, buf);
 
         fclose(fp);
         // printf("%s", commands);
@@ -310,17 +414,18 @@ int main(int argc, char *argv[])
 
             if (strstr(t1, "cd") != NULL && (c_b > 2 || c_b <= 1))
             {
-                char error_message[30] = "An error has occurred\n";
+                char error_message[30] = "An error has occurredd\n";
                 write(STDERR_FILENO, error_message, strlen(error_message));
             }
-            else if (strstr(t1, "path") != NULL && p_b == 0)
+            else if (strstr(t1, "path") != NULL)
             {
-                // memset(&path[0], 0, sizeof(path));
-                strcpy(path, "");
+                if (p_b == 0)
+                    // memset(&path[0], 0, sizeof(path));
+                    strcpy(path, "");
             }
             else if (e_b == 0)
             {
-                char error_message[30] = "An error has occurred \n";
+                char error_message[30] = "An error has occurrede\n";
                 write(STDERR_FILENO, error_message, strlen(error_message));
             }
             else if (r_m == 0)
@@ -336,15 +441,11 @@ int main(int argc, char *argv[])
     }
 
     printf("dash> ");
-    char *buf = NULL;
-    size_t size = 128;
-    size_t len;
 
-    buf = (char *)malloc(size * sizeof(char));
     char *myargs[3];
     while (1)
     {
-        char *input_command = {0};
+        // char *input_command = {0};
 
         len = getline(&buf, &size, stdin);
         char *str1, *svptr1, *svptr2, *str2, *t1, *t2;
@@ -380,23 +481,26 @@ int main(int argc, char *argv[])
                 e_b = exec_cmd(t1); //-----exec command
             if (strstr(t1, "cd") != NULL && (c_b > 2 || c_b <= 1))
             {
-                char error_message[30] = "An error has occurred\n";
+                char error_message[30] = "An error has occurredg\n";
                 write(STDERR_FILENO, error_message, strlen(error_message));
             }
-            else if (strstr(t1, "path") != NULL && p_b == 0)
+            else if (strstr(t1, "path") != NULL)
             {
-                // memset(&path[0], 0, sizeof(path));
-                strcpy(path, "");
+                if (p_b == 0)
+                    // memset(&path[0], 0, sizeof(path));
+                    strcpy(path, "");
             }
             else if (e_b == 0)
             {
-                char error_message[30] = "An error has occurred \n";
+                char error_message[30] = "An error has occurredh\n";
                 write(STDERR_FILENO, error_message, strlen(error_message));
+                e_b == 1;
             }
             else if (r_m == 0)
             {
                 char error_message[30] = "An error has occurred for rm \n";
                 write(STDERR_FILENO, error_message, strlen(error_message));
+                r_m == 1;
             }
         }
         printf("dash> ");
