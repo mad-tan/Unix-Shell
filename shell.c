@@ -6,123 +6,6 @@
 #include <ctype.h>
 
 char path[1000] = "/bin/:/usr/bin/:";
-void parallel_cmd(char *tok)
-{
-    // printf("tok print %s", tok);
-    char *tok2;
-    char *temptok;
-    int count = 0;
-    int i;
-    char *arr[10];
-    tok2 = strtok(tok, "&");
-    temptok = tok2;
-    while (temptok != NULL)
-    {
-        // if(fork() == 0)
-        // {
-        //     if (strstr(temptok, "cd") != NULL)
-        // {
-        //     //printf("2nd %s\n ", tok2);
-        //     int a = cd_builtin(temptok);
-        //     if (a > 2)
-        //     {
-        //         char error_message[30] = "An error has occurred\n";
-        //         write(STDERR_FILENO, error_message, strlen(error_message));
-        //     }
-        // }
-        // else if (strstr(temptok, "path") != NULL)
-        // {
-        //     int b = path_builtin(temptok);
-        //     if (b == 0)
-        //     {
-        //         strcpy(path, "");
-        //     }
-        // }
-        // else if (strstr(temptok, "exit") != NULL)
-        // {
-        //     int c = exit_builtin(temptok);
-        // }
-        // else
-        // {
-        //     int d = exec_cmd(temptok);
-        //     if (d == 0)
-        //     {
-        //         char error_message[30] = "An error has occurred\n";
-        //         write(STDERR_FILENO, error_message, strlen(error_message));
-        //     }
-        // }
-        // }
-        // else
-        // {
-        //     wait(NULL);
-        // }
-        arr[count] = temptok;
-        // printf("array %s", arr[count]);
-        count++;
-        temptok = strtok(NULL, "&");
-    }
-    // printf("cnt %d", count);
-    for (i = 0; i < sizeof(arr); i++)
-    {
-        printf("------%d---%s", i, arr[i]);
-        int fd = fork();
-        if (fd == 0)
-        {
-            if (strstr(arr[i], "cd") != NULL)
-            {
-                // printf("2nd %s\n ", tok2);
-                printf("arr 1 element %s", arr[i]);
-                int a = cd_builtin(arr[i]);
-                // continue;
-                // if (a > 2 || a <= 1)
-                // {
-                //     char error_message[30] = "An error has occurred for p\n";
-                //     write(STDERR_FILENO, error_message, strlen(error_message));
-                //     break;
-                // }
-            }
-            else if (strstr(arr[i], "path") != NULL)
-            {
-                int b = path_builtin(arr[i]);
-                // break;
-                if (b == 0)
-                {
-                    strcpy(path, "");
-                    break;
-                }
-            }
-            else if (strstr(arr[i], "exit") != NULL)
-            {
-                int c = exit_builtin(arr[i]);
-                break;
-            }
-            else
-            {
-                // printf("---------%s", arr[i]);
-                int d = exec_cmd(arr[i]);
-                // if (d == 0)
-                // {
-                //     char error_message[30] = "An error has occurred for p1\n";
-                //     write(STDERR_FILENO, error_message, strlen(error_message));
-                // }
-            }
-        }
-        else
-        {
-            int wc;
-            if (i == sizeof(arr) - 1)
-            {
-                wc = wait(NULL);
-                break;
-            }
-            else
-                wc = waitpid(fd);
-        }
-    }
-
-    // printf("array %s", arr);
-}
-
 char *remove_whitespace(char *tok)
 {
     int i;
@@ -134,12 +17,53 @@ char *remove_whitespace(char *tok)
     tok[i + 1] = '\0';
     return tok;
 }
+void parallel_cmd(char *tok)
+{
+    // printf("tok print %s", tok);
+
+    char *temptok;
+    int count = 0;
+    int i = 0;
+    char *svptr1;
+    char *parallel_command[3] = {NULL};
+    char *tok2 = strtok_r(tok, "&", &svptr1);
+    if (tok2)
+    {
+        parallel_command[i] = tok2;
+        i++;
+    }
+    while ((tok2 = strtok_r(NULL, "&", &svptr1)) != NULL)
+    {
+        strcat(parallel_command[i], tok2);
+    }
+    for (i = 0; i < sizeof(parallel_command); ++i)
+    {
+        printf("--->%s", parallel_command[i]);
+    }
+    // if (fork() == 0)
+    // {
+
+    //         // int a = exec_cmd(parallel_command[i]);
+    //         // if (a == 0)
+    //         // {
+    //         //     char error_message[30] = "An error has occurredpcmd\n";
+    //         //     write(STDERR_FILENO, error_message, strlen(error_message));
+    //         //     a == 1;
+    //         // }
+    //     }
+    // }
+    // else
+    // {
+    //     int wc = wait(NULL);
+    // }
+    // printf("cnt %d", count);
+}
 
 int redirect_method(char *tok) //---redirect method
 {
     int red_code = 1;
     // printf("%s", tok);
-    char *red_commands[2];
+    char *red_commands[10];
     int red_count = 0;
     int i = 0;
     char *tok2;
@@ -160,32 +84,12 @@ int redirect_method(char *tok) //---redirect method
     char *b = remove_whitespace(red_commands[0]);
 
     char *red_cmd_check;
-    // red_cmd_check = strtok(a, " ");
-    // while (red_cmd_check != NULL)
-    // {
-    //     if (strcmp(red_cmd_check, a) != 0)
-    //     {
-    //         red_code = 0;
-    //         return red_code;
-    //     }
-    // }
-
-    // printf("--->%s---->%s", a, b);
-    int saved_out = dup(1);
-    if (fork() == 0)
-    {
-        close(1);
-        int fd = open(a, O_TRUNC | O_RDWR | O_CREAT, S_IRWXU);
-
-        // dup2(fd, 1);
-        red_code = exec_cmd(b);
-        // dup2(saved_out, 1);
-        return red_code;
-    }
-    else
-    {
-        int wc = wait(NULL);
-    }
+    int saved_stdout = dup(1);
+    int fd = open(a, O_TRUNC | O_RDWR | O_CREAT, S_IRWXU);
+    dup2(fd, 1);
+    red_code = exec_cmd(b);
+    close(fd);
+    dup2(saved_stdout, 1);
     return red_code;
 }
 
@@ -262,50 +166,46 @@ int cd_builtin(char *tok) //---cd built in
 int exec_cmd(char *tok) //---exec command
 {
 
-    // printf("%s", tok);
     int exec_code = 1;
     char *tok2;
     char *temptok = tok;
     char exec_command_path[10];
     char *exec_command[10] = {NULL};
     char *svptr1;
-    // char *echo_cmd = malloc(sizeof(*char));
     int i = 0;
-    // if (strstr(tok, "echo") != NULL)
-    // {
-    //     exec_command[0] = "echo";
-    //     i++;
-    //     tok = remove_whitespace(tok);
-
-    //     char *str1 = strtok(tok, " ");
-    //     while (str1 != NULL)
-    //     {
-    //         if (strstr(str1, "echo") == NULL)
-    //         {
-    //             strcat(exec_cmd, str1);
-    //         }
-    //         str1 = strtok(NULL, " ");
-    //     }
-    //     exec_cmd = remove_whitespace(exec_cmd);
-    //     exec_command[i] = exec_cmd;
-    //     i++;
-    //     exec_command[i] = NULL;
-
-    //     //printf("---->%s--->%s---->%s", exec_command[0], exec_command[1], exec_command[2]);
-    // }
-    // else
-    // {
-    char *str1 = strtok_r(tok, " ", &svptr1);
-    if (str1)
+    char echo_command_path[10];
+    tok = remove_whitespace(tok);
+    if (strstr(tok, "echo") != NULL)
     {
-        exec_command[i] = str1;
-        i++;
-    }
-    while ((str1 = strtok_r(NULL, " ", &svptr1)) != NULL)
+
+        char *str1 = strtok_r(tok, " ", &svptr1);
+        if (str1)
+        {
+            str1 = remove_whitespace(str1);
+            exec_command[i] = str1;
+            i++;
+        }
+        while ((str1 = strtok_r(NULL, " ", &svptr1)) != NULL)
+        {
+            str1 = remove_whitespace(str1);
+            strcat(echo_command_path, str1);
+            strcat(echo_command_path, " ");
+        }
+        exec_command[i] = echo_command_path;
+        }
+    else
     {
-        exec_command[i] = str1;
+        char *str1 = strtok_r(tok, " ", &svptr1);
+        if (str1)
+        {
+            exec_command[i] = str1;
+            i++;
+        }
+        while ((str1 = strtok_r(NULL, " ", &svptr1)) != NULL)
+        {
+            exec_command[i] = str1;
+        }
     }
-    // }
     tok2 = strtok(temptok, " ");
     while (tok2 != NULL)
     {
@@ -313,6 +213,8 @@ int exec_cmd(char *tok) //---exec command
         break;
         tok2 = strtok(temptok, " ");
     }
+    // printf("----<>%s", exec_command);
+    // printf("----<>%s", exec_command_path);
     char *token;
     token = strtok(path, ":");
     while (token != NULL)
@@ -358,11 +260,12 @@ int main(int argc, char *argv[])
     {
         FILE *fp;
         char ch[50];
-
         fp = fopen(argv[1], "r");
-        len = getline(&buf, &size, fp);
         char commands[100];
-        strcat(commands, buf);
+        while (fgets(ch, 50, fp) != NULL)
+        {
+            strcat(commands, ch);
+        }
 
         fclose(fp);
         // printf("%s", commands);
