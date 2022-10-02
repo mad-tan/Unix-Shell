@@ -1,111 +1,41 @@
+/*  TEAM MEMBERS:
+    TANMAY JAIN(txj210012)
+    KEVAN MEHTA()
+
+    PLEASE NOTE:The code works properly and compiling the code with "gcc dash.c –o dash -Wall -Werror -O"
+             does not give any errors but when compiled like this, the "path function" behaves improperly.
+
+             If compiled without the flags(although the previous method does not give any errors),
+             the whole code works perfectly.
+*/
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 #include <ctype.h>
 
-char path[1000] = "/bin/:/usr/bin/:";
-char *remove_whitespace(char *tok)
+int exec_cmd(char *tok);    //prototype for exec command function
+char path[50000],path_delim[50];    //variable for path and path delimiter
+ 
+char *remove_whitespace(char *tok)  //function to remove whitespace
 {
     int i;
 
     while (isspace(*tok))
         tok++;
-    for (i = strlen(tok) - 1; (isspace(tok[i])); i--)
-        ;
+    for (i = strlen(tok) - 1; (isspace(tok[i])); i--);
     tok[i + 1] = '\0';
     return tok;
 }
-void parallel_cmd(char *tok)
-{
-    // printf("tok print %s", tok);
-    char *tok2;
-    
-    int count = 0;
-    int i;
-    char *arr[30];
-    tok2 = strtok(tok, "&");
-    
-    while (tok2 != NULL)
-    {
-        arr[count] = tok2;
-        // printf("array %s", arr[count]);
-        count++;
-        tok2 = strtok(NULL, "&");
-    }
-    // printf("cnt %d", count);
-    for (i = 0; i < sizeof(arr); i++)
-    {
-       // printf("------%d---%s", i, arr[i]);
-        int fd = fork();
-        if (fd == 0)
-        {
-            if (strstr(arr[i], "cd") != NULL)
-            {
-                // printf("2nd %s\n ", tok2);
-               // printf("arr 1 element %s", arr[i]);
-                int a = cd_builtin(arr[i]);
-                // continue;
-                if (a > 2 || a <= 1)
-                {
-                    a=0;
-                    char error_message[30] = "An error has occurred for y \n";
-                    write(STDERR_FILENO, error_message, strlen(error_message));
-                }
-            }
-            else if (strstr(arr[i], "path") != NULL)
-            {
-                int b = path_builtin(arr[i]);
-                // break;
-                if (b == 0)
-                {   
-                    strcpy(path, "");
-                }
-            }
-            else if (strstr(arr[i], "exit") != NULL)
-            {
-               exit_builtin(arr[i]);
-            }
-            else if (strstr(arr[i], ">") != NULL)
-            {
-                int d = redirect_method(arr[i]);
-                if(d==0){d=1;
-                char error_message[30] = "An error has occurred for z \n";
-                write(STDERR_FILENO, error_message, strlen(error_message));}
-                
-            }
-            else
-            {
-                 //printf("---------%s", arr[i]);
-                int e = exec_cmd(arr[i]);
-                if (e == 0)
-                {
-                    char error_message[30] = "An error has occurred for x \n";
-                    write(STDERR_FILENO, error_message, strlen(error_message));
-                }
-            }
-        }
-        else
-        {
-            int wc;
-            if(i==sizeof(arr)-1)    {
-                wc = wait(NULL);
-                break;
-            }
-            else    wc = waitpid(fd);
-        }
-    }
 
-    // printf("array %s", arr);
-}
-
-int redirect_method(char *tok) //---redirect method
+int redirect_method(char *tok)  //function for redirection
 {
-    int red_code = 1;
-    // printf("%s", tok);
-    char *red_commands[10];
-    int red_count = 0;
+    int red_code = 1;   //error code for redirection
+    char *red_commands[10]; //variable to store redirection query
+    int red_count = 0;  //variable to find number of files in redirection query
     int i = 0;
     char *tok2;
     tok2 = strtok(tok, ">");
@@ -113,8 +43,9 @@ int redirect_method(char *tok) //---redirect method
     {
         red_count++;
         tok2 = remove_whitespace(tok2);
-        if(strstr(tok2," ")!=NULL && strstr(tok2,"ls")==NULL){
-            red_code=0;
+        if (strstr(tok2, " ") != NULL && strstr(tok2, "ls") == NULL)    // to check for this error "">output11"
+        {
+            red_code = 0;
             return red_code;
         }
         red_commands[i++] = tok2;
@@ -122,113 +53,116 @@ int redirect_method(char *tok) //---redirect method
         tok2 = strtok(NULL, ">");
     }
 
-    //printf("%d",red_count);
     if (red_count <= 1 || red_count > 2)
-    {  //printf("terminate");
+    { 
         red_code = 0;
         return red_code;
     }
-    //printf("not sure");
-    char *a = remove_whitespace(red_commands[1]);
-    char *b = remove_whitespace(red_commands[0]);
-    
+ 
+    char *a = remove_whitespace(red_commands[1]);   //file name in redirection query
+    char *b = remove_whitespace(red_commands[0]);   // query to execute
+
     int saved_stdout = dup(1);
     int fd = open(a, O_TRUNC | O_RDWR | O_CREAT, S_IRWXU);
-    dup2(fd, 1);
-    red_code = exec_cmd(b);
+    dup2(fd, 1);    // changing file descriptor to file from stdout
+    red_code = exec_cmd(b); //calling function to execute
     dup2(saved_stdout, 1);
     close(fd);
     return red_code;
 }
 
-int exit_builtin(char *tok) //------exit built-in
+void exit_builtin(char *tok) //function for exit built-in
 {
     char *tok2;
-    int exit_count = 0;
+    int exit_count = 0; //error code for function
     tok2 = strtok(tok, " ");
     while (tok2 != NULL)
     {
         exit_count++;
         tok2 = strtok(NULL, " ");
     }
-    if (exit_count == 1)
+    if (exit_count == 1)    // exit call
         exit(0);
-    else
+    else    // to check for this error "exit bash"
     {
         char error_message[30] = "An error has occurredc\n";
         write(STDERR_FILENO, error_message, strlen(error_message));
-        exit(0);
+        
     }
 }
 
-int path_builtin(char *tok) //---path built-in
+int path_builtin(char *tok) //function for path built-in
 {
     char *tok2;
-    int path_count = 0;
+    char temp_path[100];
+    int path_count = 0; //variable to count number of path arguements given
     tok2 = strtok(tok, " ");
+    
     while (tok2 != NULL)
     {
-        if (strcmp(tok2, "path") != 0)
+        if (strstr(tok2, "path") == NULL)
         {
             path_count += 1;
-            if (strcmp(tok2, "reset") == 0)
-                strcpy(path, "/bin/:/usr/bin/:");
-            else
+            
             {
-                char *temp_path = tok2;
-                // printf("%s", temp_path);
                 
-                strcat(path, temp_path);
-                strcat(path, ":");
+                strcat(temp_path,tok2);
+                strcat(temp_path,path_delim);
+                
             }
         }
         tok2 = strtok(NULL, " ");
     }
-    printf("%s", path);
+    strcpy(path,temp_path);
     return path_count;
 }
 
-int cd_builtin(char *tok) //---cd built in
-{
+int cd_builtin(char *tok) //function for cd built-in
+{   
     char *tok2;
+    char cd_command[1000]={0};  // variable to store cd arguement
+    int cd_code = 1; //error code for the function
+    int cd_count = 0; // counter for cd arguements
     tok2 = strtok(tok, " ");
-    int cd_count = 0;
     while (tok2 != NULL)
-    {
-        cd_count++;
-        if (strcmp(tok2, "cd") != 0)
-        {
-            char s[100];
-            // printf("%s\n", getcwd(s, 100));
-            if (chdir(tok2) < 0)
-            {
-                cd_count = 5;
-                return cd_count;
-            }
-            // printf("%s\n", getcwd(s, 100));
+    {   
+        if (strstr(tok2, "cd") == NULL)
+        {   
+            cd_count++;
+            tok2 = remove_whitespace(tok2);
+            strcat(cd_command,tok2);
+            
         }
         tok2 = strtok(NULL, " ");
     }
-
-    return cd_count;
+    
+    if(cd_count==1){    
+        if (chdir(cd_command) < 0)
+            {
+                cd_code=0;  // to check for this error cd abcd(no folder abcd present)
+                return cd_code;
+            }
+    }
+    if(cd_count>=2 || cd_count<1) cd_code=0;
+    return cd_code;
 }
 
-int exec_cmd(char *tok) //---exec command
-{
-
-    int exec_code = 1;
+int exec_cmd(char *tok) //function to execute other than built-in commands
+{   
+    int exec_code = 1;  //error code for the function
+    char path_path[1000]; //store path temporarily
     char *tok2;
     tok = remove_whitespace(tok);
     char *temptok = tok;
-    char exec_command_path[1000];
-    char *exec_command[1000] = {NULL};
+    char exec_command_path[1000];   // stores the command(uname)
+    char *exec_command[1000] = {NULL};  //store the query (ls test)
     char *svptr1;
     int i = 0;
-    char echo_command_path[1000];
+    char echo_command_path[1000];   // to store special echo arguements
 
-    if (strstr(tok, "echo") != NULL)
+    if (strstr(tok, "echo") != NULL)    // to handle echo command
     {
-        strcpy(echo_command_path,"");
+        strcpy(echo_command_path, "");
         char *str1 = strtok_r(tok, " ", &svptr1);
         if (str1)
         {
@@ -243,8 +177,10 @@ int exec_cmd(char *tok) //---exec command
             strcat(echo_command_path, " ");
         }
         exec_command[i] = echo_command_path;
+        
     }
-    else
+    
+    else    
     {
         char *str1 = strtok_r(tok, " ", &svptr1);
         if (str1)
@@ -264,12 +200,11 @@ int exec_cmd(char *tok) //---exec command
         break;
         tok2 = strtok(temptok, " ");
     }
-    //printf("----<%s", exec_command[0],exec_command[1],exec_command[2]);
-    //printf("----<>%s", exec_command_path);
     char *token;
-    token = strtok(path, ":");
-    while (token != NULL)
-    {
+    strcpy(path_path,path);
+    char* rest = path;
+    while ((token = strtok_r(rest, ":", &rest)))    //looping through every paths
+    {   
         char temp[500] = {0};
         strcat(temp, token);
         strcat(temp, exec_command_path);
@@ -279,38 +214,107 @@ int exec_cmd(char *tok) //---exec command
             int rc = fork();
             if (rc == 0)
             {
-                if(execv(temp, exec_command)<0)
-                    exec_code=0;
-                    
+                if (execv(temp, exec_command) < 0)  //handling execv failure
+                    exec_code = 0;
             }
             else
             {
-                int wc = wait(NULL);
-
+                wait(NULL);
                 break;
             }
         }
         token = strtok(NULL, ":");
-        // if(token==NULL && fd!=0)  exec_code==0;
+       
     }
+    strcpy(path,path_path);
     if (token == NULL)
         exec_code = 0;
 
     return exec_code;
 }
 
-int main(int argc, char *argv[])
+void parallel_cmd(char *tok)    // function to execute parallel commands
 {
-    int c_b, p_b, e_b, r_m;
+    int i;
+    char *tok2;
+    for (i=0; (tok2 = strtok_r(tok,"&",&tok)) ;i++) //tokenizing parallel commmands
+    {       int fd = fork();
+            if (fd==0){
+            if (strstr(tok2, "exit") != NULL)  //calling exit built-in
+            {
+                exit_builtin(tok2);
+            }
+            else if (strstr(tok2, ">") != NULL) //calling redirection function
+            {
+                int d = redirect_method(tok2);
+                if (d == 0)
+                {
+                    d = 1;
+                    char error_message[30] = "An error has occurred y\n";
+                    write(STDERR_FILENO, error_message, strlen(error_message));
+                }
+            }
+            else if (strstr(tok2, "path") != NULL)   //calling path built-in
+            {
+                int b = path_builtin(tok2);
+                if (b == 0)
+                {
+                    strcpy(path, "");
+                }
+            }
+            else if (strstr(tok2, "cd") != NULL)    //calling cd built-in
+            {
+                int a = cd_builtin(tok2);
+                if (a==0)
+                {
+                    a = 1;
+                    char error_message[30] = "An error has occurred for p \n";
+                    write(STDERR_FILENO, error_message, strlen(error_message));
+                }
+            }
+            else    //calling execv function
+            {
+                int e = exec_cmd(tok2);
+                if (e == 0)
+                {
+                    e = 1;
+                    char error_message[30] = "An error has occurred for p1 \n";
+                    write(STDERR_FILENO, error_message, strlen(error_message));
+                }
+            }
+            exit(0);
+            }
+        }
+        if(i>1){        //waiting for all childs to complete
+            
+            while(i>0){
+                wait(NULL);
+                i = i-1;
+            }
+        }
+    
+    
+}
+
+int main(int argc, char *argv[])    
+{
+    
+    int c_b = 1, p_b = 0, e_b = 1, r_m = 1; //error codes for all functions
     char *buf = NULL;
     size_t size = 128;
-    size_t len;
+    strcpy(path_delim,"/:");    //storing default path
+    strcpy(path,"/bin");
+    strcat(path, path_delim);
 
-    buf = (char *)malloc(size * sizeof(char));
+   if (argc>2){ //if 2 files are passed
+    char error_message[30] = "An error has occurredd\n";
+    write(STDERR_FILENO, error_message, strlen(error_message));
+    exit(1);
+   }
 
-    if (argc == 2)
+    if (argc == 2)  //batch mode
     {
-        FILE *fp;
+        FILE *fp;   //reading file
         char ch[50];
         fp = fopen(argv[1], "r");
         char commands[100];
@@ -318,12 +322,10 @@ int main(int argc, char *argv[])
         {
             strcat(commands, ch);
         }
-
         fclose(fp);
-        // printf("%s", commands);
-        char *str1, *svptr1, *svptr2, *str2, *t1, *t2;
-        char dir_path[100];
-        int i, count = 0;
+
+        char *str1, *svptr1,*t1; 
+        int i;
         for (i = 1, str1 = commands;; i++, str1 = NULL)
         {
             t1 = strtok_r(str1, "\n", &svptr1);
@@ -333,139 +335,115 @@ int main(int argc, char *argv[])
             if (t1 == NULL)
                 break;
 
-            if (strstr(t1, "exit") != NULL) //-----exit builtin
+            if (strstr(t1, "exit") != NULL) //call to exit builtin
             {
                 exit_builtin(t1);
             }
-            else if (strstr(t1, "&") != NULL)
+            else if (strstr(t1, "&") != NULL) //call to parallel built-in
             {
                 parallel_cmd(t1);
             }
-            else if (strstr(t1, ">") != NULL) //-----redirect method
+            else if (strstr(t1, ">") != NULL) //call to redirect method
             {
                 r_m = redirect_method(t1);
             }
-            else if (strstr(t1, "path") != NULL) //----path builtin
+            else if (strstr(t1, "path") != NULL) //call to path builtin
             {
                 p_b = path_builtin(t1);
             }
-            else if (strstr(t1, "cd") != NULL) //----cd builtin
+            else if (strstr(t1, "cd") != NULL) //call to cd builtin
             {
                 c_b = cd_builtin(t1);
             }
             else
-                e_b = exec_cmd(commands); //-----exec command
+                e_b = exec_cmd(commands); //call to execv method
 
-            for (str2 = t1;; str2 = NULL)
+            if (strstr(t1, "cd") != NULL && c_b==0) //handling cd error
             {
-
-                t2 = strtok_r(str2, " ", &svptr2);
-
-                if (t2 == NULL)
-                    break;
-
-                count++;
-            }
-
-            if (strstr(t1, "cd") != NULL && (c_b > 2 || c_b <= 1))
-            {
-                c_b=1;
-                char error_message[30] = "An error has occurredd\n";
+                c_b = 1;
+                char error_message[30] = "An error has occurredddd\n";
                 write(STDERR_FILENO, error_message, strlen(error_message));
             }
-            else if (strstr(t1, "path") != NULL)
+            else if (r_m == 0)  //handling redirection error
             {
-                if (p_b == 0)
-                    // memset(&path[0], 0, sizeof(path));
-                    strcpy(path, "");
-            }
-            else if (e_b == 0)
-            {
-                char error_message[30] = "An error has occurrede\n";
-                write(STDERR_FILENO, error_message, strlen(error_message));
-            }
-            else if (r_m == 0)
-            {   r_m=1;
+                r_m = 1;
                 char error_message[30] = "An error has occurred for rm \n";
                 write(STDERR_FILENO, error_message, strlen(error_message));
             }
-            // printf("%s", commands);
-            // printf("Sentence %d: tokens %d\n", i, count);
-            count = 0;
+            else if (strstr(t1, "path") != NULL)    //handling path error
+            {
+                if (p_b == 0)
+                    strcpy(path, "");
+            }
+            else if (e_b == 0)  //handling execv error
+            {
+                e_b=1;
+                char error_message[30] = "An error has occurrede\n";
+                write(STDERR_FILENO, error_message, strlen(error_message));
+            }
         }
         exit(0);
     }
 
-    printf("dash> ");
-
-    char *myargs[3];
-    while (1)
+    while (1)   //batch mode
     {
-        // char *input_command = {0};
-
-        len = getline(&buf, &size, stdin);
-        char *str1, *svptr1, *svptr2, *str2, *t1, *t2;
-        char dir_path[100];
-        int i, count = 0;
+        int i;
+        printf("dash> ");
+        getline(&buf, &size, stdin);    //reading from stdin
+        char *str1, *svptr1, *t1;
         for (i = 1, str1 = buf;; i++, str1 = NULL)
         {
             t1 = strtok_r(str1, "\n", &svptr1);
             if (t1 == NULL)
                 break;
 
-            if (strstr(t1, "exit") != NULL) //-----exit builtin
+            if (strstr(t1, "exit") != NULL) //call to exit built-in
             {
                 exit_builtin(t1);
             }
-            else if (strstr(t1, "&") != NULL)
+            else if (strstr(t1, "&") != NULL) // call to parallel built-in
             {
                 parallel_cmd(t1);
             }
-            else if (strstr(t1, ">") != NULL) //-----redirect method
+            else if (strstr(t1, ">") != NULL) //call to redirect method
             {
                 r_m = redirect_method(t1);
             }
-            else if (strstr(t1, "path") != NULL) //----path builtin
+            else if (strstr(t1, "path") != NULL) //call to path builtin
             {
                 p_b = path_builtin(t1);
             }
-            else if (strstr(t1, "cd") != NULL) //----cd builtin
+            else if (strstr(t1, "cd") != NULL) //call to cd builtin
             {
                 c_b = cd_builtin(t1);
             }
-            else
-                e_b = exec_cmd(t1); //-----exec command
+            else    //call to execv method
+                e_b = exec_cmd(t1); 
 
-
-
-            if (strstr(t1, "cd") != NULL && (c_b > 2 || c_b <= 1))
+            if (strstr(t1, "cd") != NULL && c_b==0) //handling cd error
             {
-                     c_b = 0;
+                c_b = 1;
                 char error_message[30] = "An error has occurredg\n";
                 write(STDERR_FILENO, error_message, strlen(error_message));
-                
             }
-            else if (r_m == 0)
+            else if (r_m == 0)  //handling redirection error
             {
-                r_m=1;
+                r_m = 1;
                 char error_message[30] = "An error has occurred for rm \n";
                 write(STDERR_FILENO, error_message, strlen(error_message));
-               
             }
-            else if (strstr(t1, "path") != NULL)
+            else if (strstr(t1, "path") != NULL)    //handling path error
             {
                 if (p_b == 0)
-                    // memset(&path[0], 0, sizeof(path));
                     strcpy(path, "");
             }
-            else if (e_b == 0)
+            else if(e_b == 0)   //handling execv error
             {
+                e_b = 1;
                 char error_message[30] = "An error has occurredh\n";
                 write(STDERR_FILENO, error_message, strlen(error_message));
-                
             }
         }
-        printf("dash> ");
     }
     return 0;
 }
